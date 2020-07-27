@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Face Login Test</title>
+    <!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script> -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+    <style>
+        #results, #identity, #name {
+          display: block;
+          font-family: monospace;
+          white-space: pre;
+          margin: 1em 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <div id="my_camera"></div>
+                <form class="mb-2 mt-2">
+                  <input type=button class="btn btn-primary" value="Recognition Face" onClick="recognition()"/>
+                  <input type="text" id="name" placeholder="name" />
+                  <input type="number" id="idPerson" placeholder="id person" /><br><br>
+                  <input type="button" class="btn btn-primary" value="Create face on server" onclick="createPersons()"/>
+                  <!-- <input type="button" class="btn btn-primary" value="recognition" onclick="recognition()"> -->
+                </form>
+            </div>
+            <div class="col">
+                <canvas id="viewport" width="320" height="240"></canvas>
+            </div>
+        </div>
+        
+        <div class="row">
+          <div class="col">Detect face:
+            <pre id="results">
+            </pre>
+         </div>
+          <div class="col">Identity:
+            <pre id="identity">
+            </pre>
+        </div>
+          <div class="col">You are :
+            <p id="nameResult">
+            </p>
+         </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="webcam.min.js"></script>
+    <!-- <script src="javascript.js"></script> -->
+    <script>
+      Webcam.set({
+        width: 320,
+        height: 240,
+        image_format: 'jpeg',
+        jpeg_quality: 90
+      });
+      Webcam.attach('#my_camera');
+
+      var canvas = document.getElementById('viewport'),
+        context = canvas.getContext('2d');
+
+      function createPersons() {
+        Webcam.snap(function(data_uri) {
+          base_image = new Image();
+          base_image.src = data_uri;
+          base_image.onload = function() {
+            context.drawImage(base_image, 0, 0, 320, 240);
+            let data = canvas.toDataURL('image/jpeg');
+            console.log('data: ', data);
+            fetch(data)
+              .then(res => res.blob())
+              .then(blobData => {
+                console.log('blobData: ', blobData);
+                createPerson(blobData);
+              });            
+          }
+        });
+      }
+
+      function createPerson(faceUrl) {
+        let urlCreatePerson = 'https://uml-face.cognitiveservices.azure.com/face/v1.0/persongroups/demo/persons';
+        let createName = document.getElementById('name').value;
+        let createId = document.getElementById('idPerson').value;
+        var jsondataResource = JSON.stringify({name: createName, userData: createId});
+        $.ajax({
+                    url: urlCreatePerson,
+                    beforeSend: function(xhrObj){
+                        // Request headers
+                        xhrObj.setRequestHeader("Content-Type","application/json");
+                        xhrObj.setRequestHeader("Ocp-Apim-Subscription-Key","9a48a7c3dd26474e917c7deacffbbc19");
+                    },
+                    type: "POST",
+                    // Request body
+                    data: jsondataResource,
+                  })
+                  .done(function(res) {
+                    console.log(res);
+                    var personId = res.personId;
+                    console.log(personId);
+                        let url1 = `https://uml-face.cognitiveservices.azure.com/face/v1.0/persongroups/demo/persons/${personId}/persistedFaces`;
+                        // var jsonUrl = JSON.stringify({url: faceUrl});
+                        $.ajax({
+                            url: url1,
+                            beforeSend: function(xhrObj){
+                                // Request headers
+                                xhrObj.setRequestHeader("Content-Type","application/octet-stream");
+                                xhrObj.setRequestHeader("Ocp-Apim-Subscription-Key","9a48a7c3dd26474e917c7deacffbbc19");
+                            },
+                            type: "POST",
+                            processData: false,
+                            data: faceUrl,
+                          })
+                          .done(function(data) {
+                              console.log(data);
+                              $.ajax({
+                                url: 'https://uml-face.cognitiveservices.azure.com/face/v1.0/persongroups/demo/train',
+                                beforeSend: function(xhrObj){
+                                    // Request headers
+                                    xhrObj.setRequestHeader("Content-Type","application/json");
+                                    xhrObj.setRequestHeader("Ocp-Apim-Subscription-Key","9a48a7c3dd26474e917c7deacffbbc19");
+                                },
+                                type: "POST",
+                              })
+                              .done(function(data2) {
+                                console.log(data2);
+                              })
+                              .fail(function(err2) {
+                                console.log(err2);
+                              })
+                          })
+                          .fail(function(err) {
+                            console.log(err);
+                          })
+                  })
+                  .fail(function(err) {
+                    console.log(err);
+                  }); 
+      }
+
+      function recognition() {
+        document.getElementById('nameResult').innerHTML = '';
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('identity').innerHTML = '';
+
+        // take snapshot and get image data
+        Webcam.snap(function(data_uri) {
+          base_image = new Image();
+          base_image.src = data_uri;
+          base_image.onload = function() {
+            context.drawImage(base_image, 0, 0, 320, 240);
+            let data = canvas.toDataURL('image/jpeg');
+
+            // Request parameters. 05afa7f5-88ad-4ed4-b1a2-d7bb64eb4286 3d709b31-0574-4874-8891-1e9f9c3aa01d
+            var params = {
+                    "returnFaceId": "true",
+                    "returnFaceLandmarks": "false",
+                    "returnFaceAttributes":
+                        "age,gender,headPose,smile,facialHair,glasses,emotion," +
+                        "hair,makeup,occlusion,accessories,blur,exposure,noise"
+                };
+
+            fetch(data)
+              .then(res => res.blob())
+              .then(blobData => {
+                $.post({
+                    url: "https://uml-face.cognitiveservices.azure.com/face/v1.0/detect" + "?" + $.param(params),
+                    contentType: "application/octet-stream",
+                    headers: {
+                      'Ocp-Apim-Subscription-Key': '9a48a7c3dd26474e917c7deacffbbc19'
+                    },
+                    processData: false,
+                    data: blobData
+                  })
+                  .done(function(data) {
+                    $("#results").text(JSON.stringify(data, null, 2));
+                    faceIdGlobal = data[0].faceId;
+                    console.log(faceIdGlobal);
+                    identify(faceIdGlobal);
+                  })
+                  .fail(function(err) {
+                    $("#results").text(JSON.stringify(err));
+                  })
+              });
+          }
+        });
+      };
+
+      function identify(faceIdGlobal) {
+          $.post({
+                url: "https://uml-face.cognitiveservices.azure.com/face/v1.0/identify",
+                contentType: "application/json",
+                headers: {
+                  'Ocp-Apim-Subscription-Key': '9a48a7c3dd26474e917c7deacffbbc19'
+                },
+              data: "{personGroupId:'demo', faceIds:['" + faceIdGlobal + "'], confidenceThreshold: '.5'}"
+          })
+          .done(function(data) {
+              $("#identity").text(JSON.stringify(data, null, 2));
+              personIdGlobal = data[0].candidates[0].personId;
+              console.log('personIdGlobal: ', personIdGlobal);
+              getName(personIdGlobal);
+          })
+          .fail(function(err2) {
+              console.log(err2);
+          });
+      };
+
+      function getName(personIdGlobal) {
+        var params = {
+              'personGroupId': 'demo',
+              'personId': personIdGlobal
+          };
+
+          $.get({
+                url: "https://uml-face.cognitiveservices.azure.com/face/v1.0/persongroups/demo/persons/" + personIdGlobal,
+                headers: {
+                  'Ocp-Apim-Subscription-Key': '9a48a7c3dd26474e917c7deacffbbc19'
+                },
+          })
+          .done(function(data2) {
+            console.log('data2: ', data2.name);
+              document.getElementById('nameResult').innerHTML = data2.name;
+          })
+          .fail(function() {
+              alert("error");
+          });
+      };
+    </script>
+</body>
+</html>
