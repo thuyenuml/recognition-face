@@ -1,11 +1,9 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Face Login Test</title>
-    <!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script> -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
     <style>
         #results, #identity, #name {
@@ -26,7 +24,6 @@
                   <input type="text" id="name" placeholder="name" />
                   <input type="number" id="idPerson" placeholder="id person" /><br><br>
                   <input type="button" class="btn btn-primary" value="Create face on server" onclick="createPersons()"/>
-                  <!-- <input type="button" class="btn btn-primary" value="recognition" onclick="recognition()"> -->
                 </form>
             </div>
             <div class="col">
@@ -54,7 +51,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="webcam.min.js"></script>
-    <!-- <script src="javascript.js"></script> -->
     <script>
       Webcam.set({
         width: 320,
@@ -74,9 +70,11 @@
           base_image.onload = function() {
             context.drawImage(base_image, 0, 0, 320, 240);
             let data = canvas.toDataURL('image/jpeg');
-            console.log('data: ', data);
             fetch(data)
-              .then(res => res.blob())
+              .then(res => {
+                console.log('res: ', res);
+                res.blob();
+              })
               .then(blobData => {
                 console.log('blobData: ', blobData);
                 createPerson(blobData);
@@ -157,7 +155,7 @@
           base_image.onload = function() {
             context.drawImage(base_image, 0, 0, 320, 240);
             let data = canvas.toDataURL('image/jpeg');
-
+            console.log('data: ', data);
             // Request parameters. 05afa7f5-88ad-4ed4-b1a2-d7bb64eb4286 3d709b31-0574-4874-8891-1e9f9c3aa01d
             var params = {
                     "returnFaceId": "true",
@@ -168,8 +166,12 @@
                 };
 
             fetch(data)
-              .then(res => res.blob())
+              .then(res => {
+                console.log('res: ', res);
+                res.blob();
+              })
               .then(blobData => {
+                console.log('blobData: ', blobData);
                 $.post({
                     url: "https://uml-face.cognitiveservices.azure.com/face/v1.0/detect" + "?" + $.param(params),
                     contentType: "application/octet-stream",
